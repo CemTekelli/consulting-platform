@@ -1,0 +1,33 @@
+name: Backend CI
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cp_user
+          POSTGRES_PASSWORD: cp_pass
+          POSTGRES_DB: cp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cp_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install deps
+        run: |
+          cd backend
+          poetry config virtualenvs.create false
+          poetry install
+      - name: Run tests
+        run: pytest -q
