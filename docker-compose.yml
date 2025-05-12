@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: cp_user
+      POSTGRES_PASSWORD: cp_pass
+      POSTGRES_DB: cp_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init/01-create-user-db.sql:/docker-entrypoint-initdb.d/01-create-user-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cp_user"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    volumes: [ "redisdata:/data" ]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes: [ "miniodata:/data" ]
+
+  backend:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    ports: ["8000:8000"]
+    volumes:
+      - ./backend:/code/backend
+
+  frontend:
+    build: ./frontend
+    ports: ["5173:5173"]
+    depends_on:
+      - backend
+
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
